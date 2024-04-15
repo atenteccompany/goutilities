@@ -24,7 +24,7 @@ func WriteJSONToFile(o interface{}) (string, error) {
 	}
 
 	var fn string
-	if fn, err = Writetofile(s.String()); err != nil {
+	if fn, err = Writetofile(s.String(), "output.json"); err != nil {
 		return "", err
 	}
 
@@ -34,8 +34,11 @@ func WriteJSONToFile(o interface{}) (string, error) {
 // Writes any string value to file.
 // File will be created into directory output.
 // File name will be prefixed with current timestamp.
-func Writetofile(str string) (string, error) {
-	strQueryTextFileName := fmt.Sprintf("output/output_%v.txt", time.Now().UnixMilli())
+func Writetofile(str string, filename string) (string, error) {
+	var strQueryTextFileName string
+	if len(filename) == 0 {
+		strQueryTextFileName = fmt.Sprintf("output/%s_%v.txt", filename, time.Now().UnixMilli())
+	}
 	file, err := os.Create(strQueryTextFileName)
 	if err != nil {
 		fmt.Printf("Failed to create file '%s': %s\n", strQueryTextFileName, err)
