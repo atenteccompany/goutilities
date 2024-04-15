@@ -37,9 +37,9 @@ func WriteJSONToFile(o interface{}) (string, error) {
 func Writetofile(str string, filename string) (string, error) {
 	var strQueryTextFileName string
 	if len(filename) == 0 {
-		strQueryTextFileName = fmt.Sprintf("output/%v.txt", time.Now().UnixMilli())
+		strQueryTextFileName = fmt.Sprintf("%v.txt", time.Now().UnixMilli())
 	} else {
-		strQueryTextFileName = fmt.Sprintf("output/%s", filename)
+		strQueryTextFileName = fmt.Sprintf("%s", filename)
   }
 	file, err := os.Create(strQueryTextFileName)
 	if err != nil {
