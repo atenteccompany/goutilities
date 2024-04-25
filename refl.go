@@ -54,11 +54,10 @@ func AnyToInt64(val interface{}) (pri int64, err error) {
 	return pri, nil
 }
 
-//---------------------------------------------------------------------------------------------------------
-
+// ---------------------------------------------------------------------------------------------------------
 type fieldInfo struct {
 	Name  string
-	Type  reflect.Type
+	Type  string
 	Index int
 }
 
@@ -70,20 +69,20 @@ func PrintWithReflVal(v reflect.Value) {
 func PrintWithReflType(t reflect.Type) {
 	//Print type statistics
 	fmt.Print("\t\t\tType Statistics\n\n")
-	fmt.Printf("%-20s | %-20s | \n%-20s | %-20d |", "Type", "Number of Fields", t.String(), t.NumField())
+	fmt.Printf("%-20s | %-20s | \n%-20s | %-20d |", "Type", "Number of Fields", t.Name(), t.NumField())
 	//Print type fields
 	fmt.Print("\n\n\t\t\tType Fields\n\n")
 	fmt.Printf("%-20s | %-20s | %-5s | Tags\n", "Field Name", "Type", "Index")
-	fields := getFieldInfo(t, "")
+	fields := getFieldInfo(t)
 	for _, field := range fields {
 		printFieldInfo(t, field)
 	}
 
-	fmt.Println("--------------------------------------------------------------------------------------")
+	fmt.Println("------------------------------------------------------------------------------------------------------")
 }
 
 func printFieldInfo(t reflect.Type, field fieldInfo) {
-	fmt.Printf("%-20s | %-20s | %-5d | ", field.Name, field.Type.String(), field.Index)
+	fmt.Printf("%-20s | %-20s | %-5d | ", field.Name, field.Type, field.Index)
 
 	// Get all tags
 	tag := t.Field(field.Index).Tag
@@ -112,19 +111,18 @@ func splitTags(tag reflect.StructTag) map[string]string {
 	return tags
 }
 
-func getFieldInfo(t reflect.Type, prefix string) []fieldInfo {
+func getFieldInfo(t reflect.Type) []fieldInfo {
 	var fields []fieldInfo
-
 	for i := 0; i < t.NumField(); i++ {
 		fieldType := t.Field(i).Type
 		fieldName := t.Field(i).Name
 
 		fields = append(fields, fieldInfo{
-			Name:  prefix + fieldName,
-			Type:  fieldType,
+			Name:  fieldName,
+			Type:  fieldType.Name(),
 			Index: i,
 		})
-	}
 
+	}
 	return fields
 }
