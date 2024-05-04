@@ -1,130 +1,102 @@
 package goutilities
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
-	"strings"
 
-	"github.com/fatih/color"
+	"github.com/rodaine/table"
 )
 
-type fieldInfo struct {
-	Name  string
-	Type  string
-	Index int
-}
-
-// ExplainVal logs details of a struct value.
-// It takes a reflect.Value as input and prints information about its type and fields.
-func ExplainVal(v reflect.Value) {
-	if v.Kind() != reflect.Struct {
-		fmt.Print(color.HiRedString("Passed Value is not Struct\n"))
-		return
-	}
-
-	t := v.Type()
-	if t == nil {
-		fmt.Print(color.HiRedString("Passed Type is nil\n"))
-		return
-	}
-	ExplainType(t, 0)
-}
-
-// ExplainType logs details of a struct type.
-// It takes a reflect.Type and depth as input and prints information about the type and its fields recursively.
-func ExplainType(t reflect.Type, depth int) {
-	if t == nil {
-		fmt.Print(color.HiRedString("Passed Type is nil\n"))
-		return
-	}
-
+// ExplainType takes a struct type to log its details.
+// It returns an error if the passed input is not a struct type.
+func ExplainType(t reflect.Type) error {
 	if t.Kind() != reflect.Struct {
-		fmt.Print(color.HiRedString("Passed Type is not Struct\n"))
-		return
+		return errors.New("passed type must be a struct")
 	}
 
-	primitiveFieldsCount, structFieldsCount := numFieldsByKind(t)
+	structQueue := make([]reflect.Type, 0)
+	depthQueue := make([]int, 0)
+	visitedTypes := make(map[string]bool)
 
-	//Print type statistics
-	fmt.Print(color.HiRedString("\t\t\tType Statistics\n\n"))
-	fmt.Printf("%-20s | %-20s | %-20s | %-20s | %-20s | \n", color.HiGreenString("Struct Name"), color.HiGreenString("Depth"), color.HiGreenString("Total Fields"), color.HiGreenString("Primitive Fields"), color.HiGreenString("Struct Fields"))
-	fmt.Printf("%-20s | %-11d | %-12d | %-16d | %-13d |\n", color.HiWhiteString(t.Name()), depth, t.NumField(), primitiveFieldsCount, structFieldsCount)
+	structQueue = append(structQueue, t)
+	depthQueue = append(depthQueue, 0)
 
-	//Print type fields
-	fmt.Print(color.HiRedString("\n\n\t\t\tType Fields\n\n"))
-	fmt.Printf("%-24s | %-24s | %-24s | %-24s\n", color.HiGreenString("Field Name"), color.HiGreenString("Type"), color.HiGreenString("Index"), color.HiGreenString("Tags"))
-	fields := getFieldInfo(t)
-	for i, field := range fields {
+	for len(structQueue) > 0 {
+		var structCnt int
 
-		printFieldInfo(t, field)
-		fieldType := t.Field(i).Type
+		currentStruct := structQueue[0]
+		currentDepth := depthQueue[0]
+		structQueue = structQueue[1:]
+        depthQueue = depthQueue[1:]
+		structFields := make([]reflect.StructField, 0)
 
-		if fieldType.Kind() == reflect.Struct {
-			//Print seperator after fields
-			fmt.Println(color.HiWhiteString(strings.Repeat("-", 120)))
-			ExplainType(fieldType, depth+1)
+		for i := 0; i < currentStruct.NumField(); i++ {
+			field := currentStruct.Field(i)
+
+			structFields = append(structFields, field)
+
+			first, second := fieldNewTypes(field)
+			if first != nil && !visitedTypes[first.String()] {
+				structQueue = append(structQueue, first)
+				depthQueue = append(depthQueue, currentDepth+1)
+				visitedTypes[first.String()] = true
+			}
+			if second != nil && !visitedTypes[second.String()] {
+				structQueue = append(structQueue, second)
+				depthQueue = append(depthQueue, currentDepth+1)
+				visitedTypes[second.String()] = true
+			}
+			if first != nil || second != nil {
+				structCnt++
+			}
 		}
+		printStructHeader(currentStruct, structCnt, currentDepth)
+		printStructFields(structFields)
 	}
 
-	if depth == 0 {
-		fmt.Println(color.HiWhiteString(strings.Repeat("-", 120)))
-	}
+	return nil
 }
 
-func printFieldInfo(t reflect.Type, field fieldInfo) {
-	fmt.Print(color.WhiteString("%-15s | %-15s | %-15d | ", field.Name, field.Type, field.Index))
-
-	// Get all tags
-	tag := t.Field(field.Index).Tag
-	tagList := splitTags(tag)
-	// Print tags
-	for tagName, tagValue := range tagList {
-		fmt.Printf("%5s: %5s | ", tagName, tagValue)
+func fieldNewTypes(field reflect.StructField) (reflect.Type, reflect.Type) {
+	if field.Type.Kind() == reflect.Struct {
+		return field.Type, nil
 	}
 
+	if field.Type.Kind() == reflect.Slice {
+		return field.Type.Elem(), nil
+	}
+
+	if field.Type.Kind() == reflect.Map {
+		var k, v reflect.Type
+		if field.Type.Key().Kind() == reflect.Struct {
+			k = field.Type.Key()
+		}
+		if field.Type.Elem().Kind() == reflect.Struct {
+			v = field.Type.Elem()
+		}
+		if field.Type.Elem().Kind() == reflect.Slice {
+			v = field.Type.Elem().Elem()
+		}
+
+		return k, v
+	}
+
+	return nil, nil
+}
+
+func printStructHeader(t reflect.Type, structCnt, depth int) {
+	fmt.Printf("\033[1;32;4mStruct: %s(depth: %d, total fields count: %d, struct fields count: %d, primitive fields count: %d)\033[0m\n", t.String(), depth, t.NumField(), structCnt, t.NumField()-structCnt)
+}
+
+func printStructFields(structFields []reflect.StructField) {
+	tbl := table.New("Name", "Type", "Index", "Tags")
+	tbl = tbl.WithHeaderSeparatorRow('-')
+
+	for i, field := range structFields {
+		tbl.AddRow(field.Name, field.Type.String(), i, field.Tag)
+	}
+
+	tbl.Print()
 	fmt.Println()
-}
-
-func splitTags(tag reflect.StructTag) map[string]string {
-	tags := make(map[string]string)
-
-	for _, tagName := range strings.Split(string(tag), " ") {
-		if tagName == "" {
-			continue
-		}
-		parts := strings.SplitN(tagName, ":", 2)
-		key := parts[0]
-		value := strings.Trim(parts[1], `"`)
-		tags[key] = value
-	}
-
-	return tags
-}
-
-func getFieldInfo(t reflect.Type) []fieldInfo {
-	var fields []fieldInfo
-	for i := 0; i < t.NumField(); i++ {
-		fieldType := t.Field(i).Type
-		fieldName := t.Field(i).Name
-
-		fields = append(fields, fieldInfo{
-			Name:  fieldName,
-			Type:  fieldType.Name(),
-			Index: i,
-		})
-	}
-	return fields
-}
-
-func numFieldsByKind(t reflect.Type) (int, int) {
-	primitiveCount := 0
-	structCount := 0
-	for i := 0; i < t.NumField(); i++ {
-		if t.Field(i).Type.Kind() != reflect.Struct {
-			primitiveCount++
-		} else {
-			structCount++
-		}
-	}
-	return primitiveCount, structCount
 }
