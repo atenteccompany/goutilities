@@ -86,7 +86,7 @@ func fieldNewTypes(field reflect.StructField) (reflect.Type, reflect.Type) {
 }
 
 func printStructHeader(t reflect.Type, structCnt, depth int) {
-	fmt.Printf("\033[1;32;4mStruct: %s(depth: %d, total fields count: %d, struct fields count: %d, primitive fields count: %d)\033[0m\n", t.String(), depth, t.NumField(), structCnt, t.NumField()-structCnt)
+	fmt.Printf("\033[1;32;4mStruct: %s(depth: %d, total fields count: %d, struct fields count: %d, primitive fields count: %d)\033[0m\n", t.Name(), depth, t.NumField(), structCnt, t.NumField()-structCnt)
 }
 
 func printStructFields(structFields []reflect.StructField) {
@@ -94,7 +94,11 @@ func printStructFields(structFields []reflect.StructField) {
 	tbl = tbl.WithHeaderSeparatorRow('-')
 
 	for i, field := range structFields {
-		tbl.AddRow(field.Name, field.Type.String(), i, field.Tag)
+        ftype := field.Type.String()
+        if field.Type.Kind() == reflect.Struct {
+            ftype = "struct"
+        }
+		tbl.AddRow(field.Name, ftype, i, field.Tag)
 	}
 
 	tbl.Print()

@@ -5,7 +5,7 @@ import (
 	"testing"
 )
 
-func ExampleExplainType(t *testing.T) {
+func TestExplainType(t *testing.T) {
 	type Inner struct {
 		F1_Inner int `json:"f1_inner"`
 	}
